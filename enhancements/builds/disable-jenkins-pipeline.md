@@ -10,7 +10,7 @@ approvers:
   - Jessica Forrester
   - "@sbose78"
 creation-date: 2021-04-21
-last-updated: 2021-04-21
+last-updated: 2021-04-23
 status: provisional
 see-also: []
 replaces: []
@@ -19,35 +19,7 @@ superseded-by: []
 
 # Disable Jenkins Pipeline Strategy
 
-This is the title of the enhancement. Keep it simple and descriptive. A good
-title can help communicate what the enhancement is and should be considered as
-part of any review.
-
-The YAML `title` should be lowercased and spaces/punctuation should be
-replaced with `-`.
-
-To get started with this template:
-1. **Pick a domain.** Find the appropriate domain to discuss your enhancement.
-1. **Make a copy of this template.** Copy this template into the directory for
-   the domain.
-1. **Fill out the "overview" sections.** This includes the Summary and
-   Motivation sections. These should be easy and explain why the community
-   should desire this enhancement.
-1. **Create a PR.** Assign it to folks with expertise in that domain to help
-   sponsor the process.
-1. **Merge at each milestone.** Merge when the design is able to transition to a
-   new status (provisional, implementable, implemented, etc.). View anything
-   marked as `provisional` as an idea worth exploring in the future, but not
-   accepted as ready to execute. Anything marked as `implementable` should
-   clearly communicate how an enhancement is coded up and delivered. If an
-   enhancement describes a new deployment topology or platform, include a
-   logical description for the deployment, and how it handles the unique aspects
-   of the platform. Aim for single topic PRs to keep discussions focused. If you
-   disagree with what is already in a document, open a new PR with suggested
-   changes.
-
-The `Metadata` section above is intended to support the creation of tooling
-around the enhancement process.
+**Note - this enhancement is provisional and is intended to solicit feedback**
 
 ## Release Signoff Checklist
 
@@ -74,9 +46,6 @@ It is time to disable OpenShift's direct integration with Jenkins.
 
 Distrbuting and supporting Jenkins directly has always been challenging for OpenShift.
 Jenkins is based in Java and is extended by a convoluted ecosystem of plugins, which are a constant source of bugs and CVEs.
-Historically, the sprawling nature of Jenkins and its dependencies has made it impossible for Red Hat to independently compile Jenkins and the libraries used by OpenShift's plugin extensions.
-We instead distribute Jenkins directly from community binaries, making it vulnerable to supply chain attacks from sophisticated attackers.
-Given the increasing prevalence of supply chain attacks globally (SolarWinds), relying on third parties for binary code is becoming less tolerable for product security. 
 
 Jenkins itself is not native to Kubernetes and does not use a Java runtime that has been optimized for cloud-native environments (i.e. Quarkus).
 As a result, it has poor resilience when run on Kubernetes.
@@ -89,60 +58,94 @@ Recently Red Hat tried to engage with a third party to develop an open source Ku
 That effort unfortunately fell apart, leading Red Hat to fork the operator in an attempt to continue its development.
 No other companies or individuals have contributed to the operator since, and its current form does not provide measurable value beyond what is currently available with the Jenkins templates.
 
-
-
-This section is for explicitly listing the motivation, goals and non-goals of
-this proposal. Describe why the change is important and the benefits to users.
+With the upcoming GA release of OpenShift Pipelines, we would like to decouple Jenkins from OpenShift.
+This would allow bug fixes in our Jenkins distribution to be released on its own cadence.
+Customers can continue to deploy Jenkins on OpenShift via its ImageStream and associated templates.
+In this fashion, Jenkins becomes just another application on OpenShift and does not retain any preferential status.
 
 ### Goals
 
 * Disable the integration points between Jenkins and OpenShift.
-
-
-List the specific goals of the proposal. How will we know that this has succeeded?
+* Move Jenkins out of the OCP Payload
+* Document how JenkinsPipeline strategy builds can be migrated off of OpenShift.
 
 ### Non-Goals
 
-What is out of scope for this proposal? Listing non-goals helps to focus discussion
-and make progress.
+* Migrate Jenkins users to OpenShift Pipelines/Tekton.
+* Stop distributing the Jenkins image and our associated OpenShift plugins.
 
 ## Proposal
 
-This is where we get down to the nitty gritty of what the proposal actually is.
-
 ### User Stories
 
-Detail the things that people will be able to do if this is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system. The goal here is to make this feel real for users without getting
-bogged down.
+As a developer using Jenkins on OpenShift
+I want to continue using my Jenkinsfiles
+So that I can continue to use Jenkins for my CI/CD processes
 
-Include a story on how this proposal will be operationalized:  lifecycled, monitored and remediated at scale.
+As an OpenShift release engineer
+I want to remove Jenkins from the OCP payload
+So that I can reduce the size of the payload
+And release Jenkins fixes on their own cadence
 
 ### Implementation Details/Notes/Constraints [optional]
 
-What are the caveats to the implementation? What are some important details that
-didn't come across above. Go in to as much detail as necessary here. This might
-be a good place to talk about core concepts and how they relate.
+Deprecation warnings for the Jenkins Pipeline Build Strategy will need to be updated in the next OpenShift release (OCP 4.N).
+Since Jenkins integrations have been officially been officially deprecated for well over one year, these warnings need to be strengthened so customers are fully aware that all direct Jenkins integrations will be removed.
+Like the use of other deprecated APIs, OpenShift must also alert users if a Jenkins pipeline build strategy is used in a Build or BuildConfig.
+
+In the OCP 4.(N+1) release, builds which use the Jenkins pipeline build strategy should fail immediately.
+All documentation related to Jenkins pipeline builds will need to be removed, and replaced with a statement that the Jenkins pipeline strategy has been disabled.
+The updated documenation should include instructions on how to move a Jenkinsfile off of OpenShift.
+
+Ideally, the deprecation warnings are strengthened in OCP 4.9.
+Jenkins pipeline builds will then be disabled in OCP 4.10 (our next Extended User Support release).
+
+#### Jenkins Pipeline Build Strategy
+
+In OCP 4.N, an alert should be fired if a build is started with the Jenkins Pipeline build strategy.
+Likewise, an alert should be fired if there is any BuildConfig which uses the Jenkins Pipeline strategy.
+This data is already collected by openshift-state-metrics, therefore creating an alert is a matter of aggregating the right metrics.
+
+In OCP 4.(N+1), the build controller should immediately fail a build which utilizes the Jenkins pipeline strategy with an appropriate failure message.
+
+#### oc <new|start>-build
+
+In OCP 4.N, `oc new-build` should print a warning message if the generated/referenced BuildConfig uses the Jenkins pipeline strategy.
+`oc start-build` should print a warning message if a build was started with the Jenkins pipeline strategy.
+
+In OCP 4.(N+1), `oc new-build` should not support the creation of new Builds with the Jenkins pipeline strategy.
+`oc start-build` may continue to create builds referencing the Jenkins pipeline strategy, but these builds will ultimately fail.
+
+#### Web Console
+
+The Developer and Admin perspectives in the Web Console should not directly integrate with Jenkins beyond what is possible with an OpenShift API object.
+User will continue to be able to deploy Jenkins on OpenShift by instantiating our provided Templates.
+
+#### Documentation
+
+Current Jenkins Pipeline strategy builds will need to add their Jenkinsfile defitions to Jenkins through another means.
+Upstream Jenkins has guidance on how to [define a pipeline in source control](https://www.jenkins.io/doc/book/pipeline/getting-started/#defining-a-pipeline-in-scm), which should be the basis on how users should migrate their Jenkins pipelines off of OpenShift.
+There are two migration scenarios which need to be considered:
+
+- Migrating a Jenkinsfile defined in the user's git source.
+- Migrating an inline Jenkinsfile defined in the user's BuildConfig.
+
+#### Release Engineering
+
+Jenkins is currently built and packaged via the OpenShift ART team.
+This process will need to be migrated to CPaaS.
 
 ### Risks and Mitigations
 
-What are the risks of this proposal and how do we mitigate. Think broadly. For
-example, consider both security and how this will impact the larger OKD
-ecosystem.
+**Risk: Not sufficient time to migrate off of Jenkins**
 
-How will security be reviewed and by whom? How will UX be reviewed and by whom?
-
-Consider including folks that also work outside your immediate sub-project.
+**Risk: Users will continue to start Jenkins pipeline builds**
 
 ## Design Details
 
 ### Open Questions [optional]
 
-This is where to call out areas of the design that require closure before deciding
-to implement the design.  For instance,
- > 1. This requires exposing previously private resources which contain sensitive
-  information.  Can we do this?
+TODO
 
 ### Test Plan
 
@@ -159,56 +162,6 @@ challenging to test should be called out.
 
 All code is expected to have adequate tests (eventually with coverage
 expectations).
-
-### Graduation Criteria
-
-**Note:** *Section not required until targeted at a release.*
-
-Define graduation milestones.
-
-These may be defined in terms of API maturity, or as something else. Initial proposal
-should keep this high-level with a focus on what signals will be looked at to
-determine graduation.
-
-Consider the following in developing the graduation criteria for this
-enhancement:
-
-- Maturity levels
-  - [`alpha`, `beta`, `stable` in upstream Kubernetes][maturity-levels]
-  - `Dev Preview`, `Tech Preview`, `GA` in OpenShift
-- [Deprecation policy][deprecation-policy]
-
-Clearly define what graduation means by either linking to the [API doc definition](https://kubernetes.io/docs/concepts/overview/kubernetes-api/#api-versioning),
-or by redefining what graduation means.
-
-In general, we try to use the same stages (alpha, beta, GA), regardless how the functionality is accessed.
-
-[maturity-levels]: https://git.k8s.io/community/contributors/devel/sig-architecture/api_changes.md#alpha-beta-and-stable-versions
-[deprecation-policy]: https://kubernetes.io/docs/reference/using-api/deprecation-policy/
-
-**Examples**: These are generalized examples to consider, in addition
-to the aforementioned [maturity levels][maturity-levels].
-
-#### Dev Preview -> Tech Preview
-
-- Ability to utilize the enhancement end to end
-- End user documentation, relative API stability
-- Sufficient test coverage
-- Gather feedback from users rather than just developers
-- Enumerate service level indicators (SLIs), expose SLIs as metrics
-- Write symptoms-based alerts for the component(s)
-
-#### Tech Preview -> GA
-
-- More testing (upgrade, downgrade, scale)
-- Sufficient time for feedback
-- Available by default
-- Backhaul SLI telemetry
-- Document SLOs for the component
-- Conduct load testing
-
-**For non-optional features moving to GA, the graduation criteria must include
-end to end tests.**
 
 #### Removing a deprecated feature
 
@@ -271,8 +224,7 @@ enhancement:
 
 ## Implementation History
 
-Major milestones in the life cycle of a proposal should be tracked in `Implementation
-History`.
+2020-04-23: Provisional enhancement draft
 
 ## Drawbacks
 
