@@ -118,8 +118,11 @@ In OCP 4.(N+1), `oc new-build` should not support the creation of new Builds wit
 
 #### Web Console
 
-The Developer and Admin perspectives in the Web Console should not directly integrate with Jenkins beyond what is possible with an OpenShift API object.
 User will continue to be able to deploy Jenkins on OpenShift by instantiating our provided Templates.
+
+In OCP 4.N, the Jenkins pipeline view of a build needs to display a warning that the strategy will be removed.
+In OCP 4.(N+1) the Developer and Admin perspectives in the Web Console should not directly integrate with Jenkins beyond what is possible with any other OpenShift API object.
+Views of an OpenShift Build should not have a pipeline view for Jenkins.
 
 #### Documentation
 
