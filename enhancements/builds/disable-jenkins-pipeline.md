@@ -235,9 +235,18 @@ The idea is to find the best form of an argument why this enhancement should _no
 
 ## Alternatives
 
-Similar to the `Drawbacks` section the `Alternatives` section is used to
-highlight and record other possible approaches to delivering the value proposed
-by an enhancement.
+### Only remove Jenkins from the OCP Payload
+
+OCP 3.x initially had a feature that auto-provisioned Jenkins if a JenkinsPipeline build was started.
+This capability was removed in the later OCP 3 releases, but its legacy was one reason that Jenkins was included in the OCP payload.
+
+Today users must deploy Jenkins via the provided templates to take advantage of OpenShift's integrations.
+The Samples Operator is responsible for installing the imagestream and templates for Jenkins, just like other Red Hat products delivered in this fashion.
+Jenkins is the only imagestream installed via the Samples Operator whose images exist in the payload.
+
+Removing Jenkins from the payload will help with the mainenance burden, because Jenkins fixes will not need to be backported to each Red Hat release.
+However, as long as the Jenkins pipelie strategy exists, the sync plugin will need to be maintained and updated.
+This sync plugin has been a longstanding source of bugs - reducing its required capabilities will reduce the maintenance burden further.
 
 ## Infrastructure Needed [optional]
 
